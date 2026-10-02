@@ -353,16 +353,140 @@ footer {
   border-radius: 99px;
   overflow: hidden;
 }
-.lang button, .sound {
+.lang button, .pill {
   font: 600 11px/1 var(--mono);
   color: var(--muted);
   background: transparent;
   border: none;
   padding: 7px 10px;
   cursor: pointer;
+  white-space: nowrap;
 }
 .lang button[aria-pressed="true"] { color: #05060f; background: var(--cyan); }
-.sound { border: 1px solid var(--line); border-radius: 99px; }
+.pill { border: 1px solid var(--line); border-radius: 99px; }
+.toggles-row { display: flex; gap: 6px; }
+
+.link-btn {
+  font: 500 14px/1.2 var(--sans);
+  color: var(--cyan);
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(103, 232, 249, 0.4);
+  cursor: pointer;
+}
+
+/* ---------- Info dialog ---------- */
+#info {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  color: var(--text);
+  background: radial-gradient(120% 70% at 50% 0%, var(--bg-2) 0%, var(--bg) 70%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#info[open] { display: block; animation: infoIn 0.35s ease-out both; }
+#info::backdrop { background: var(--bg); }
+@keyframes infoIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.info-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
+  background: rgba(5, 6, 15, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  z-index: 1;
+}
+.info-head h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.info-head .pill { font-size: 12px; padding: 9px 14px; color: var(--text); }
+.info-body {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px max(40px, env(safe-area-inset-bottom));
+  font-size: 16px;
+  line-height: 1.6;
+  color: #c9cdf0;
+}
+.info-body .lead { font-size: 17px; color: var(--text); }
+.info-body h3 {
+  margin: 28px 0 8px;
+  font-size: 13px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.info-body p + p, .info-body p + ol, .info-body ol + p { margin-top: 10px; }
+.info-body strong { color: var(--text); font-weight: 600; }
+.info-body ol { padding-left: 22px; display: grid; gap: 6px; }
+.info-body ol li::marker { color: var(--magenta); font-family: var(--mono); }
+.info-body .caption {
+  margin: 4px 0 14px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.info-body .fine {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.favor { display: block; width: 100%; max-width: 420px; margin: 8px auto 0; overflow: visible; }
+.favor .f-shell { fill: rgba(103, 232, 249, 0.04); stroke: rgba(103, 232, 249, 0.35); stroke-dasharray: 3 5; }
+.favor .f-ring { fill: none; stroke-width: 3; }
+.favor .f-ring-a { stroke: var(--cyan); }
+.favor .f-ring-b { stroke: var(--violet); }
+.favor .f-core { fill: rgba(240, 171, 252, 0.15); stroke: var(--magenta); stroke-width: 2; }
+.favor .f-core-on { fill: rgba(240, 171, 252, 0.35); filter: drop-shadow(0 0 8px rgba(240, 171, 252, 0.8)); }
+.favor .f-nfc { font: 600 9px var(--mono); fill: var(--text); text-anchor: middle; }
+.favor .f-arrow path { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.favor .f-arrow text { font: 500 10px var(--mono); fill: var(--muted); text-anchor: middle; }
+.favor .f-flip { transform-box: fill-box; transform-origin: center; animation: flip 3.2s ease-in-out infinite alternate; }
+.favor .f-flip-b { animation-duration: 4.6s; animation-delay: -1.3s; }
+@keyframes flip {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(-1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .favor .f-flip { animation: none; transform: scaleY(0.35); }
+}
+
+/* Hidden iOS switch used to trigger haptic feedback (Safari has no Vibration API). */
+.haptic {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
 /* ---------- Toast ---------- */
 #toast {

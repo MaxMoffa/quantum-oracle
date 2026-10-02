@@ -25,6 +25,7 @@
     <p class="intro-sub" data-i18n="introSub"></p>
     <button id="startBtn" class="btn btn-primary" data-i18n="start"></button>
     <p class="intro-hint" data-i18n="introHint"></p>
+    <button class="link-btn" data-open-info data-i18n="howItWorks"></button>
   </section>
 
   <!-- Main HUD -->
@@ -77,9 +78,20 @@
       <div class="lang" role="group" aria-label="Language">
         <button data-lang="it">IT</button><button data-lang="en">EN</button>
       </div>
-      <button id="soundBtn" class="sound" aria-pressed="true"></button>
+      <div class="toggles-row">
+        <button class="pill" data-open-info data-i18n="infoBtn"></button>
+        <button id="soundBtn" class="pill" aria-pressed="true"></button>
+      </div>
     </div>
   </footer>
+
+  <dialog id="info" aria-labelledby="infoTitle">
+    <div class="info-head">
+      <h2 id="infoTitle" data-i18n="infoTitle"></h2>
+      <button id="infoClose" class="pill" data-i18n="infoClose"></button>
+    </div>
+    <div id="infoBody" class="info-body"></div>
+  </dialog>
 
   <div id="toast" role="status"></div>
 

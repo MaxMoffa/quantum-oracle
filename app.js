@@ -55,6 +55,7 @@
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-aria]").forEach((el) => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
     document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+    $("infoBody").innerHTML = t("infoHtml");
     updateSoundBtn();
     statusKey = null;
     if (current) renderResult(false);
@@ -65,6 +66,21 @@
     store.set("qo.lang", lang);
     applyLang();
   }));
+
+  // ---------------------------------------------------------------- info dialog
+
+  const info = $("info");
+  let infoOpen = false;
+
+  document.querySelectorAll("[data-open-info]").forEach((b) => b.addEventListener("click", () => {
+    if (info.open) return;
+    info.showModal();
+    info.scrollTop = 0;
+    infoOpen = true;
+    holding = false;
+  }));
+  $("infoClose").addEventListener("click", () => info.close());
+  info.addEventListener("close", () => { infoOpen = false; });
 
   // ---------------------------------------------------------------- audio
 
@@ -83,88 +99,91 @@
     master.gain.value = soundOn ? 1 : 0;
     master.connect(ac.destination);
 
-    const humGain = ac.createGain();
-    humGain.gain.value = 0;
+    // Soft echo shared by pad and chime.
+    const send = ac.createGain();
+    const delay = ac.createDelay(1);
+    delay.delayTime.value = 0.32;
+    const feedback = ac.createGain();
+    feedback.gain.value = 0.35;
+    const damp = ac.createBiquadFilter();
+    damp.type = "lowpass";
+    damp.frequency.value = 1800;
+    const wet = ac.createGain();
+    wet.gain.value = 0.4;
+    send.connect(delay);
+    delay.connect(damp);
+    damp.connect(feedback);
+    feedback.connect(delay);
+    damp.connect(wet);
+    wet.connect(master);
+
+    // Pad: an airy A–E–A chord of pure sines, silent until the phone is shaken.
+    const padGain = ac.createGain();
+    padGain.gain.value = 0;
     const filter = ac.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = 400;
-    filter.Q.value = 7;
-    const o1 = ac.createOscillator();
-    o1.type = "sawtooth";
-    o1.frequency.value = 55;
-    const o2 = ac.createOscillator();
-    o2.type = "sine";
-    o2.frequency.value = 110.6;
-    o1.connect(filter);
-    o2.connect(filter);
-    filter.connect(humGain);
-    humGain.connect(master);
-    o1.start();
-    o2.start();
-    Object.assign(audio, { ctx: ac, master, humGain, filter, o1, o2 });
+    filter.frequency.value = 700;
+    filter.Q.value = 0.7;
+    filter.connect(padGain);
+    padGain.connect(master);
+    padGain.connect(send);
+    const voices = [220, 329.63, 440.8].map((f, i) => {
+      const o = ac.createOscillator();
+      o.type = i === 0 ? "triangle" : "sine";
+      o.frequency.value = f;
+      const g = ac.createGain();
+      g.gain.value = [0.5, 0.35, 0.2][i];
+      o.connect(g);
+      g.connect(filter);
+      o.start();
+      return o;
+    });
+    // Shimmer that fades in as superposition grows.
+    const shimmer = ac.createOscillator();
+    shimmer.type = "sine";
+    shimmer.frequency.value = 659.25;
+    const shimmerGain = ac.createGain();
+    shimmerGain.gain.value = 0;
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(filter);
+    shimmer.start();
+
+    Object.assign(audio, { ctx: ac, master, send, padGain, filter, voices, shimmerGain });
   }
 
   function updateHum(intensity) {
     if (!audio.ctx) return;
     const now = audio.ctx.currentTime;
-    const active = mode === "hud" || mode === "measuring";
-    const gain = active ? 0.012 + intensity * 0.06 + energy * 0.02 : 0;
-    const base = 55 + energy * 110 + intensity * 40;
-    audio.humGain.gain.setTargetAtTime(gain, now, 0.08);
-    audio.o1.frequency.setTargetAtTime(base, now, 0.1);
-    audio.o2.frequency.setTargetAtTime(base * 2.01, now, 0.1);
-    audio.filter.frequency.setTargetAtTime(300 + energy * 1400 + intensity * 1200, now, 0.1);
+    const active = (mode === "hud" || mode === "measuring") && !infoOpen;
+    const swell = mode === "measuring" ? 0.6 : intensity;
+    audio.padGain.gain.setTargetAtTime(active ? swell * 0.05 + energy * 0.012 : 0, now, 0.25);
+    audio.shimmerGain.gain.setTargetAtTime(active ? energy * 0.35 : 0, now, 0.3);
+    audio.filter.frequency.setTargetAtTime(600 + energy * 1100 + intensity * 500, now, 0.3);
+    // Gentle vibrato that grows with the shake.
+    const wobble = 1 + Math.sin(now * 5) * 0.004 * intensity;
+    audio.voices.forEach((o, i) => o.frequency.setTargetAtTime([220, 329.63, 440.8][i] * wobble, now, 0.1));
   }
 
-  function ping() {
+  // Collapse: a soft rising C-major arpeggio, like a glass chime.
+  function chime() {
     if (!audio.ctx) return;
     const ac = audio.ctx;
-    const t0 = ac.currentTime;
-    [880, 1320, 1760].forEach((f, i) => {
+    const t0 = ac.currentTime + 0.01;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const start = t0 + i * 0.075;
       const o = ac.createOscillator();
       const g = ac.createGain();
       o.type = "sine";
-      o.frequency.setValueAtTime(f * 0.5, t0);
-      o.frequency.exponentialRampToValueAtTime(f, t0 + 0.08);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.16 / (i + 1), t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6 + i * 0.3);
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.07, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 2.2);
       o.connect(g);
       g.connect(audio.master);
-      o.start(t0);
-      o.stop(t0 + 2.3);
+      g.connect(audio.send);
+      o.start(start);
+      o.stop(start + 2.3);
     });
-    const len = (ac.sampleRate * 0.4) | 0;
-    const buf = ac.createBuffer(1, len, ac.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-    const src = ac.createBufferSource();
-    src.buffer = buf;
-    const hp = ac.createBiquadFilter();
-    hp.type = "highpass";
-    hp.frequency.value = 1200;
-    const g = ac.createGain();
-    g.gain.value = 0.22;
-    src.connect(hp);
-    hp.connect(g);
-    g.connect(audio.master);
-    src.start(t0);
-  }
-
-  function tick() {
-    if (!audio.ctx) return;
-    const ac = audio.ctx;
-    const t0 = ac.currentTime;
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.type = "square";
-    o.frequency.value = rand(2200, 2800);
-    g.gain.setValueAtTime(0.012, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.02);
-    o.connect(g);
-    g.connect(audio.master);
-    o.start(t0);
-    o.stop(t0 + 0.03);
   }
 
   function updateSoundBtn() {
@@ -185,7 +204,46 @@
     else audio.ctx.resume();
   });
 
-  const vibrate = (p) => { if (navigator.vibrate) navigator.vibrate(p); };
+  // ---------------------------------------------------------------- haptics
+
+  // Android: Vibration API. iOS Safari has none, but toggling a hidden
+  // <input type="checkbox" switch> (iOS 18+) fires a system haptic tick.
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let hapticLabel = null;
+
+  function iosTick() {
+    if (!hapticLabel) {
+      hapticLabel = document.createElement("label");
+      hapticLabel.className = "haptic";
+      hapticLabel.setAttribute("aria-hidden", "true");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.setAttribute("switch", "");
+      input.tabIndex = -1;
+      hapticLabel.appendChild(input);
+      document.body.appendChild(hapticLabel);
+    }
+    hapticLabel.click();
+  }
+
+  // pattern: ms on/off list, like navigator.vibrate. On iOS each "on" segment
+  // becomes a tick, plus one every 60 ms for long segments.
+  function vibrate(pattern) {
+    if (navigator.vibrate) {
+      navigator.vibrate(pattern);
+      return;
+    }
+    if (!isIOS) return;
+    const p = Array.isArray(pattern) ? pattern : [pattern];
+    let at = 0;
+    p.forEach((d, i) => {
+      if (i % 2 === 0) {
+        for (let k = 0; k < d; k += 60) setTimeout(iosTick, at + k);
+      }
+      at += d;
+    });
+  }
 
   // ---------------------------------------------------------------- input
 
@@ -305,7 +363,7 @@
     rings.push({ r: P.R * 0.6, a: 1, w: 3 }, { r: P.R * 0.3, a: 0.8, w: 2 }, { r: P.R * 0.1, a: 0.6, w: 1.5 });
     burst(P.cx, P.cy, reducedMotion ? 30 : 160);
     view.pop = 1.3;
-    ping();
+    chime();
     vibrate([30, 60, 140]);
   }
 
@@ -346,7 +404,6 @@
     let i = 0;
     typer = setInterval(() => {
       text.data += chars[i];
-      if (i % 2 === 0 && chars[i] !== " ") tick();
       if (++i >= chars.length) clearInterval(typer);
     }, 28);
   }
@@ -375,18 +432,68 @@
     }
   }
 
-  // Shuffle bag: no repeats until every phrase has been seen.
-  async function pickPhrase() {
-    const n = window.PHRASES.length;
-    let bag;
-    try { bag = JSON.parse(store.get("qo.bag") || "null"); } catch { bag = null; }
-    if (!Array.isArray(bag) || !bag.length || bag.some((i) => !Number.isInteger(i) || i < 0 || i >= n)) {
-      bag = Array.from({ length: n }, (_, i) => i);
+  // URL bias: ?bias=love:5,work-03:20,*:0 (or ?b=<base64url of the same>).
+  // Keys: "*" (every phrase), a category, or a phrase id; the most specific wins.
+  // A missing weight means 3, weight 0 excludes the phrase.
+  function parseBias() {
+    const list = window.PHRASES;
+    const params = new URLSearchParams(location.search);
+    let raw = params.get("bias") || "";
+    if (!raw && params.get("b")) {
+      try { raw = atob(params.get("b").replace(/-/g, "+").replace(/_/g, "/")); } catch { raw = ""; }
     }
+    const cats = new Set(list.map((p) => p.c));
+    const ids = new Set(list.map((p) => p.id));
+    const rule = { all: null, cat: {}, id: {} };
+    raw.split(",").forEach((part) => {
+      const [k, v] = part.split(":").map((x) => (x || "").trim());
+      if (!k) return;
+      const w = v === "" ? 3 : Number(v);
+      if (!Number.isFinite(w) || w < 0) return;
+      const weight = Math.min(w, 1000);
+      if (k === "*") rule.all = weight;
+      else if (ids.has(k)) rule.id[k] = weight;
+      else if (cats.has(k)) rule.cat[k] = weight;
+    });
+    const pick = (...vals) => vals.find((x) => x != null);
+    const weights = list.map((p) => pick(rule.id[p.id], rule.cat[p.c], rule.all, 1));
+    if (weights.every((w) => w === 0)) return list.map(() => 1);
+    if (raw) {
+      console.info("[quantum-oracle] bias", raw);
+      console.table(list.map((p, i) => ({ id: p.id, weight: weights[i] })).filter((r) => r.weight !== 1));
+    }
+    return weights;
+  }
+  const weights = parseBias();
+
+  // Weighted pick. The previous outcome is excluded and other recent ones are
+  // damped, so results feel varied without cancelling out the URL bias.
+  const RECENT_MAX = 12;
+  const RECENT_DAMPING = 0.1;
+  async function pickPhrase() {
+    const list = window.PHRASES;
+    let recent;
+    try { recent = JSON.parse(store.get("qo.recent") || "[]"); } catch { recent = []; }
+    if (!Array.isArray(recent)) recent = [];
+
+    const eligible = list.map((_, i) => i).filter((i) => weights[i] > 0);
+    const lastId = recent[recent.length - 1];
+    let pool = eligible.filter((i) => list[i].id !== lastId);
+    if (!pool.length) pool = eligible;
+    const w = (i) => weights[i] * (recent.includes(list[i].id) ? RECENT_DAMPING : 1);
+
     const qv = await quantumRandom();
     const value = qv == null ? cryptoRandom() : qv;
-    const index = bag.splice(value % bag.length, 1)[0];
-    store.set("qo.bag", JSON.stringify(bag));
+    const total = pool.reduce((sum, i) => sum + w(i), 0);
+    let x = (value / 4294967296) * total;
+    let index = pool[pool.length - 1];
+    for (const i of pool) {
+      x -= w(i);
+      if (x < 0) { index = i; break; }
+    }
+
+    recent.push(list[index].id);
+    store.set("qo.recent", JSON.stringify(recent.slice(-RECENT_MAX)));
     return { index, source: qv == null ? "crypto" : "qrng" };
   }
 
@@ -916,6 +1023,10 @@
     last = now;
 
     motion.intensity *= Math.exp(-dt * 5);
+    if (infoOpen) {
+      motion.intensity = 0;
+      motion.lastShakeAt = now;
+    }
     if (holding) motion.lastShakeAt = now;
     const hold = holding ? 0.8 + 0.2 * Math.sin(now / 40) : 0;
     const intensity = Math.max(motion.intensity, hold);
