@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05060f">
+  <meta name="description" content="Quantum Oracle — agita il telefono, fai collassare la funzione d'onda e scopri il tuo destino.">
+  <meta property="og:title" content="Quantum Oracle">
+  <meta property="og:description" content="Agita il telefono e fai collassare la funzione d'onda.">
+  <title>Quantum Oracle</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305060f'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2367e8f9' stroke-width='3'/%3E%3Cellipse cx='32' cy='32' rx='18' ry='6' fill='none' stroke='%23a78bfa' stroke-width='2'/%3E%3Cline x1='32' y1='32' x2='42' y2='18' stroke='%23f0abfc' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-state="intro">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div id="flash" aria-hidden="true"></div>
+
+  <!-- Intro -->
+  <section id="intro" class="screen">
+    <div class="intro-glyph" aria-hidden="true">|ψ⟩</div>
+    <h1>Quantum <span>Oracle</span></h1>
+    <p class="intro-sub" data-i18n="introSub"></p>
+    <button id="startBtn" class="btn btn-primary" data-i18n="start"></button>
+    <p class="intro-hint" data-i18n="introHint"></p>
+  </section>
+
+  <!-- Main HUD -->
+  <section id="hud" class="screen" aria-live="polite">
+    <div class="hud-top">
+      <div class="ket" id="ket">|ψ⟩ = 1.00|0⟩ + 0.00|1⟩</div>
+      <div class="probs">
+        <div class="prob"><span>P(0)</span><div class="bar"><i id="p0"></i></div><b id="p0v">100%</b></div>
+        <div class="prob"><span>P(1)</span><div class="bar"><i id="p1"></i></div><b id="p1v">0%</b></div>
+      </div>
+    </div>
+
+    <button id="orb" class="orb" aria-label="" data-i18n-aria="holdAria"></button>
+
+    <div class="hud-bottom">
+      <p id="status" class="status"></p>
+      <div class="meter" aria-hidden="true">
+        <span data-i18n="superposition"></span>
+        <div class="bar wide"><i id="energy"></i></div>
+        <b id="energyv">0%</b>
+      </div>
+      <pre id="log" class="log" aria-hidden="true"></pre>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section id="result" class="screen" aria-live="assertive">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-label" data-i18n="outcome"></span>
+        <span class="card-cat" id="cat"></span>
+      </div>
+      <p class="phrase" id="phrase"></p>
+      <div class="card-meta" id="meta"></div>
+    </div>
+    <div class="actions">
+      <button id="againBtn" class="btn btn-primary" data-i18n="again"></button>
+      <button id="shareBtn" class="btn btn-ghost" data-i18n="share"></button>
+    </div>
+    <p class="result-hint" data-i18n="shakeAgain"></p>
+  </section>
+
+  <footer>
+    <div class="credits">
+      <strong>Dott. Umberto Casaburi</strong>
+      <span data-i18n="degree"></span>
+      <em>“Noise-based side-channel attacks: inferring the coupling map of NISQ Quantum Computers”</em>
+    </div>
+    <div class="toggles">
+      <div class="lang" role="group" aria-label="Language">
+        <button data-lang="it">IT</button><button data-lang="en">EN</button>
+      </div>
+      <button id="soundBtn" class="sound" aria-pressed="true"></button>
+    </div>
+  </footer>
+
+  <div id="toast" role="status"></div>
+
+  <script src="phrases.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
